@@ -1,6 +1,6 @@
 import './styles/global.css'
 import './style.css'
-import { useForm } from 'react-hook-form'
+import { useForm, useFieldArray } from 'react-hook-form'
 import { ChangeEvent, useState } from 'react'
 import { z } from 'zod'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -26,6 +26,14 @@ const createUserFormSchema = z.object({
       return email.endsWith('@gmail.com')
     }, 'O e-mail deve ser do domínio @gmail.com'),
   password: z.string().min(6, 'Senha precisa de no mínimo 6 caracteres'),
+  techs: z
+    .array(
+      z.object({
+        title: z.string().nonempty('O titulo é obrigatório'),
+        knowledge: z.coerce.number().min(1).max(100),
+      }),
+    )
+    .min(2, 'Insira pelo menos 2 tecnologias'),
 })
 
 type CreateUserFormData = z.infer<typeof createUserFormSchema>
@@ -35,9 +43,21 @@ export default function App() {
     register,
     handleSubmit,
     formState: { errors },
+    control,
   } = useForm<CreateUserFormData>({
     resolver: zodResolver(createUserFormSchema),
   })
+
+  const { fields, append } = useFieldArray({
+    name: 'techs',
+    control,
+  })
+  function addNewTech() {
+    append({
+      title: '',
+      knowledge: 0,
+    })
+  }
 
   const [output, setOutput] = useState('')
   const [darkMode, setDarkMode] = useState(false)
@@ -66,7 +86,11 @@ export default function App() {
               type="text"
               className="border border-gray-400  shadow-sm rounded h-10 px-3"
             />
-            {errors.name && <span>{errors.name.message}</span>}
+            {errors.name && (
+              <span className="text-red-500 text-sm">
+                {errors.name.message}
+              </span>
+            )}
           </div>
           <div className="flex flex-col gap-1">
             <label htmlFor="">E-mail</label>
@@ -75,7 +99,11 @@ export default function App() {
               type="email"
               className="border border-gray-400  shadow-sm rounded h-10 px-3"
             />
-            {errors.email && <span>{errors.email.message}</span>}
+            {errors.email && (
+              <span className="text-red-500 text-sm">
+                {errors.email.message}
+              </span>
+            )}
           </div>
           <div className="flex flex-col gap-1">
             <label htmlFor="">Senha</label>
@@ -84,8 +112,62 @@ export default function App() {
               {...register('password')}
               className="border border-gray-400 shadow-sm rounded h-10 px-3"
             />
+            {errors.email && (
+              <span className="text-red-500 text-sm">
+                {errors.password?.message}
+              </span>
+            )}
           </div>
-          {errors.password && <span>{errors.password?.message}</span>}
+
+          <div className="flex flex-col gap-1">
+            <label htmlFor="" className="flex items-center justify-between">
+              Tecnologias
+              <button
+                onClick={addNewTech}
+                className="text-emerald-500 text-sm"
+                type="button"
+              >
+                Adicionar
+              </button>
+            </label>
+            {fields.map((field, i) => {
+              return (
+                <div key={field.id} className="flex gap-2">
+                  <div className="flex-1 flex flex-col gap-1">
+                    <input
+                      key={i}
+                      type="text"
+                      {...register(`techs.${i}.title`)}
+                      className=" border border-gray-400 shadow-sm rounded h-10 px-3"
+                    />
+                    {errors.techs?.[i]?.title && (
+                      <span className="text-red-500 text-sm">
+                        {errors.techs?.[i]?.title?.message}
+                      </span>
+                    )}
+                  </div>
+                  <div className="flex-1 flex flex-col gap-1">
+                    <input
+                      key={i}
+                      type="number"
+                      {...register(`techs.${i}.knowledge`)}
+                      className="w-16 border border-gray-400 shadow-sm rounded h-10 px-3"
+                    />
+                    {errors.techs?.[i]?.knowledge && (
+                      <span className="text-red-500 text-sm">
+                        {errors.techs?.[i]?.knowledge?.message}
+                      </span>
+                    )}
+                  </div>
+                </div>
+              )
+            })}
+            {errors.techs && (
+              <span className="text-red-500 text-sm">
+                {errors.techs.message}
+              </span>
+            )}
+          </div>
 
           <button
             type="submit"
