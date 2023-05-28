@@ -4,14 +4,14 @@
 
 - [X] Criar uma estrutura básica de fromulários com react-hook-form
 - [X] Criar a possibilidade de validação/trasnformação;
-- [ ] Lidar com upload de arquivos;
+- [X] Lidar com upload de arquivos;
 - [ ] Composition Pattern
 
 
 
 ## Setup do projeto
 
-```
+```js
 - npm install react-hook-form zod @hookform/resolvers
 - npm i -D tailwindcss postcss typescript @types/react autoprefixer 
 ```
@@ -35,11 +35,11 @@ export default {
   },
   plugins: [],
 }
-```js
+```
 
 -No arquvo global de css
 
-```
+```js
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -307,4 +307,41 @@ type CreateUserFormData = z.infer<typeof createUserFormSchema>
 
 ```
  
-## 
+## Lidando com arquivos 
+
+Para adicionar um campo com arquivos, faz-se necessário passar para o zod o tipo do campo, para poder aplicar certas validações.
+
+```js
+const createUserFormSchema = z.object({
+  avatar: z
+    .instanceof(FileList)
+    .transform((list) => list.item(0))
+    .refine(
+      (file) => file!.size <= 2 * 1024 * 1024,
+      'O arquivo deve ser menor que 5MB',
+    ),
+    
+   async function createUser(data: CreateUserFormData) {
+    await supabase.storage
+      .from('formsReact')
+      .upload(data.avatar?.name, data.avatar)
+    console.log(data.avatar)
+    setOutput(JSON.stringify(data))
+  }
+  
+  
+  return (
+          <div className="flex flex-col gap-1">
+            <label htmlFor="avatar">Avatar</label>
+            <input {...register('avatar')} type="file" accept="image/*" />
+            {errors.avatar && (
+              <span className="text-red-500 text-sm">
+                {errors.avatar.message}
+              </span>
+            )}
+          </div>
+  )
+  
+  
+
+```
