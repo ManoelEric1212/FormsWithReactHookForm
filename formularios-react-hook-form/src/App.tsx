@@ -1,19 +1,35 @@
 import './styles/global.css'
 import './style.css'
-import { useForm, useFieldArray } from 'react-hook-form'
+import { PlusCircle, XCircle } from 'lucide-react'
+import { useForm, useFieldArray, FormProvider } from 'react-hook-form'
 import { ChangeEvent, useState } from 'react'
 import { z } from 'zod'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { supabase } from './lib/supabase'
+import { Form } from './components/Form'
+
+// const MAX_FILE_SIZE = 5 * 1024 * 1024 // 5mb
+// const ACCEPTED_IMAGE_TYPES = [
+//   'image/jpeg',
+//   'image/jpg',
+//   'image/png',
+//   'image/webp',
+// ]
 
 const createUserFormSchema = z.object({
-  avatar: z
-    .instanceof(FileList)
-    .transform((list) => list.item(0)!)
-    .refine(
-      (file) => file!.size <= 2 * 1024 * 1024,
-      'O arquivo deve ser menor que 5MB',
-    ),
+  // avatar: z
+  //   .instanceof(FileList)
+  //   .refine((files) => !!files.item(0), 'A imagem de perfil é obrigatória')
+  //   .refine(
+  //     (files) => files.item(0)!.size <= MAX_FILE_SIZE,
+  //     `Tamanho máximo de 5MB`,
+  //   )
+  //   .refine(
+  //     (files) => ACCEPTED_IMAGE_TYPES.includes(files.item(0)!.type),
+  //     'Formato de imagem inválido',
+  //   )
+  //   .transform((files) => {
+  //     return files.item(0)!
+  //   }),
   name: z
     .string()
     .nonempty('O nome é obrigatório')
@@ -38,7 +54,6 @@ const createUserFormSchema = z.object({
     .array(
       z.object({
         title: z.string().nonempty('O titulo é obrigatório'),
-        knowledge: z.coerce.number().min(1).max(100),
       }),
     )
     .min(2, 'Insira pelo menos 2 tecnologias'),
@@ -47,38 +62,40 @@ const createUserFormSchema = z.object({
 type CreateUserFormData = z.infer<typeof createUserFormSchema>
 
 export default function App() {
-  const {
-    register,
-    handleSubmit,
-    formState: { errors },
-    control,
-  } = useForm<CreateUserFormData>({
+  const [output, setOutput] = useState('')
+  const [darkMode, setDarkMode] = useState(false)
+  const createUseForm = useForm<CreateUserFormData>({
     resolver: zodResolver(createUserFormSchema),
   })
 
-  const { fields, append } = useFieldArray({
+  const {
+    handleSubmit,
+    formState: { isSubmitting },
+    control,
+    watch,
+  } = createUseForm
+
+  const userPassword = watch('password')
+  const isPasswordStrong =
+    /(?=.*[a-z])(?=.*[A-Z])(?=.*[0-9])(?=.*[^A-Za-z0-9])(?=.{8,})/.test(
+      userPassword,
+    )
+
+  const { fields, append, remove } = useFieldArray({
     name: 'techs',
     control,
   })
   function addNewTech() {
     append({
       title: '',
-      knowledge: 0,
     })
   }
-
-  const [output, setOutput] = useState('')
-  const [darkMode, setDarkMode] = useState(false)
 
   const handleToogleChange = (event: ChangeEvent<HTMLInputElement>) => {
     setDarkMode(event.target.checked)
   }
   async function createUser(data: CreateUserFormData) {
-    await supabase.storage
-      .from('formsReact')
-      .upload(data.avatar?.name, data.avatar)
-    console.log(data.avatar)
-    setOutput(JSON.stringify(data))
+    setOutput(JSON.stringify(data, null, 2))
   }
   return (
     <>
@@ -87,135 +104,106 @@ export default function App() {
           darkMode ? 'bg-zinc-900 text-zinc-300' : 'bg-zync-50'
         } flex flex-col items-center justify-center`}
       >
-        <form
-          onSubmit={handleSubmit(createUser)}
-          className="flex flex-col gap-4 w-full max-w-xs"
-        >
-          <div className="flex flex-col gap-1">
-            <label htmlFor="avatar">Avatar</label>
-            <input {...register('avatar')} type="file" accept="image/*" />
-            {errors.avatar && (
-              <span className="text-red-500 text-sm">
-                {errors.avatar.message}
-              </span>
-            )}
-          </div>
-          <div className="flex flex-col gap-1">
-            <label htmlFor="">Nome</label>
-            <input
-              {...register('name')}
-              type="text"
-              className="border border-gray-400  shadow-sm rounded h-10 px-3"
-            />
-            {errors.name && (
-              <span className="text-red-500 text-sm">
-                {errors.name.message}
-              </span>
-            )}
-          </div>
-          <div className="flex flex-col gap-1">
-            <label htmlFor="">E-mail</label>
-            <input
-              {...register('email')}
-              type="email"
-              className="border border-gray-400  shadow-sm rounded h-10 px-3"
-            />
-            {errors.email && (
-              <span className="text-red-500 text-sm">
-                {errors.email.message}
-              </span>
-            )}
-          </div>
-          <div className="flex flex-col gap-1">
-            <label htmlFor="">Senha</label>
-            <input
-              type="password"
-              {...register('password')}
-              className="border border-gray-400 shadow-sm rounded h-10 px-3"
-            />
-            {errors.password && (
-              <span className="text-red-500 text-sm">
-                {errors.password?.message}
-              </span>
-            )}
-          </div>
-
-          <div className="flex flex-col gap-1">
-            <label htmlFor="" className="flex items-center justify-between">
-              Tecnologias
-              <button
-                onClick={addNewTech}
-                className="text-emerald-500 text-sm"
-                type="button"
-              >
-                Adicionar
-              </button>
-            </label>
-            {fields.map((field, i) => {
-              return (
-                <div key={field.id} className="flex gap-2">
-                  <div className="flex-1 flex flex-col gap-1">
-                    <input
-                      key={i}
-                      type="text"
-                      {...register(`techs.${i}.title`)}
-                      className=" border border-gray-400 shadow-sm rounded h-10 px-3"
-                    />
-                    {errors.techs?.[i]?.title && (
-                      <span className="text-red-500 text-sm">
-                        {errors.techs?.[i]?.title?.message}
-                      </span>
-                    )}
-                  </div>
-                  <div className="flex-1 flex flex-col gap-1">
-                    <input
-                      key={i}
-                      type="number"
-                      {...register(`techs.${i}.knowledge`)}
-                      className="w-16 border border-gray-400 shadow-sm rounded h-10 px-3"
-                    />
-                    {errors.techs?.[i]?.knowledge && (
-                      <span className="text-red-500 text-sm">
-                        {errors.techs?.[i]?.knowledge?.message}
-                      </span>
-                    )}
-                  </div>
-                </div>
-              )
-            })}
-            {errors.techs && (
-              <span className="text-red-500 text-sm">
-                {errors.techs.message}
-              </span>
-            )}
-          </div>
-
-          <button
-            type="submit"
-            className="bg-emerald-500 rounded font-semibold text-white h-10 hover:bg-emerald-600"
+        <FormProvider {...createUseForm}>
+          <form
+            onSubmit={handleSubmit(createUser)}
+            className="flex flex-col gap-4 w-full max-w-xs"
           >
-            Salvar
-          </button>
-          <div className="flex w-full justify-end">
-            <label
-              htmlFor="toogleA"
-              className="flex items-center cursor-pointer"
+            {/* <Form.Field>
+              <Form.Label htmlFor="avatar">Avatar</Form.Label>
+              <Form.Input type="file" name="avatar" />
+              <Form.ErrorMessage field="avatar" />
+            </Form.Field> */}
+
+            <Form.Field>
+              <Form.Label htmlFor="name">Nome</Form.Label>
+              <Form.Input type="name" name="name" />
+              <Form.ErrorMessage field="name" />
+            </Form.Field>
+
+            <Form.Field>
+              <Form.Label htmlFor="email">E-mail</Form.Label>
+              <Form.Input type="email" name="email" />
+              <Form.ErrorMessage field="email" />
+            </Form.Field>
+
+            <Form.Field>
+              <Form.Label htmlFor="password">
+                Password
+                {isPasswordStrong ? (
+                  <span className="text-xs text-emerald-600">Senha forte</span>
+                ) : (
+                  <span className="text-xs text-red-500">Senha fraca</span>
+                )}
+              </Form.Label>
+              <Form.Input type="password" name="password" />
+              <Form.ErrorMessage field="password" />
+            </Form.Field>
+            <Form.Field>
+              <Form.Label>
+                Tecnologias
+                <button
+                  type="button"
+                  onClick={addNewTech}
+                  className="text-emerald-500 font-semibold text-xs flex items-center gap-1"
+                >
+                  Adicionar nova
+                  <PlusCircle size={14} />
+                </button>
+              </Form.Label>
+              <Form.ErrorMessage field="techs" />
+
+              {fields.map((field, index) => {
+                const fieldName = `techs.${index}.title`
+
+                return (
+                  <Form.Field key={field.id}>
+                    <div className="flex gap-2 items-center">
+                      <Form.Input type={fieldName} name={fieldName} />
+                      <button
+                        type="button"
+                        onClick={() => remove(index)}
+                        className="text-red-500"
+                      >
+                        <XCircle size={14} />
+                      </button>
+                    </div>
+                    <Form.ErrorMessage field={fieldName} />
+                  </Form.Field>
+                )
+              })}
+            </Form.Field>
+
+            <button
+              type="submit"
+              disabled={isSubmitting}
+              className="bg-emerald-500 rounded font-semibold text-white h-10 hover:bg-emerald-600"
             >
-              <div className="relative">
-                <input
-                  id="toogleA"
-                  type="checkbox"
-                  className="sr-only"
-                  checked={darkMode}
-                  onChange={handleToogleChange}
-                />
-                <div className="w-10 h-4 bg-gray-400 rounded-full shadow-inner"></div>
-                <div className="dot absolute w-6 h-6 bg-gray-800 rounded-full shadow -left-1 -top-1 transition"></div>
-              </div>
-              <div className="ml-3 text-gray-700 font-medium">Modo escuro</div>
-            </label>
-          </div>
-        </form>
+              Salvar
+            </button>
+            <div className="flex w-full justify-end">
+              <label
+                htmlFor="toogleA"
+                className="flex items-center cursor-pointer"
+              >
+                <div className="relative">
+                  <input
+                    id="toogleA"
+                    type="checkbox"
+                    className="sr-only"
+                    checked={darkMode}
+                    onChange={handleToogleChange}
+                  />
+                  <div className="w-10 h-4 bg-gray-400 rounded-full shadow-inner"></div>
+                  <div className="dot absolute w-6 h-6 bg-gray-800 rounded-full shadow -left-1 -top-1 transition"></div>
+                </div>
+                <div className="ml-3 text-gray-700 font-medium">
+                  Modo escuro
+                </div>
+              </label>
+            </div>
+          </form>
+        </FormProvider>
         <pre>{output}</pre>
       </main>
     </>
