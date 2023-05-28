@@ -4,8 +4,16 @@ import { useForm, useFieldArray } from 'react-hook-form'
 import { ChangeEvent, useState } from 'react'
 import { z } from 'zod'
 import { zodResolver } from '@hookform/resolvers/zod'
+import { supabase } from './lib/supabase'
 
 const createUserFormSchema = z.object({
+  avatar: z
+    .instanceof(FileList)
+    .transform((list) => list.item(0)!)
+    .refine(
+      (file) => file!.size <= 2 * 1024 * 1024,
+      'O arquivo deve ser menor que 5MB',
+    ),
   name: z
     .string()
     .nonempty('O nome é obrigatório')
@@ -65,7 +73,11 @@ export default function App() {
   const handleToogleChange = (event: ChangeEvent<HTMLInputElement>) => {
     setDarkMode(event.target.checked)
   }
-  function createUser(data: CreateUserFormData) {
+  async function createUser(data: CreateUserFormData) {
+    await supabase.storage
+      .from('formsReact')
+      .upload(data.avatar?.name, data.avatar)
+    console.log(data.avatar)
     setOutput(JSON.stringify(data))
   }
   return (
@@ -79,6 +91,15 @@ export default function App() {
           onSubmit={handleSubmit(createUser)}
           className="flex flex-col gap-4 w-full max-w-xs"
         >
+          <div className="flex flex-col gap-1">
+            <label htmlFor="avatar">Avatar</label>
+            <input {...register('avatar')} type="file" accept="image/*" />
+            {errors.avatar && (
+              <span className="text-red-500 text-sm">
+                {errors.avatar.message}
+              </span>
+            )}
+          </div>
           <div className="flex flex-col gap-1">
             <label htmlFor="">Nome</label>
             <input
@@ -112,7 +133,7 @@ export default function App() {
               {...register('password')}
               className="border border-gray-400 shadow-sm rounded h-10 px-3"
             />
-            {errors.email && (
+            {errors.password && (
               <span className="text-red-500 text-sm">
                 {errors.password?.message}
               </span>
